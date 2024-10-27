@@ -1,9 +1,7 @@
 "use strict";
 
 (function (exports) {
-
     // control sequences for coloring
-
     exports.black = "\x1b[30m"
     exports.red = "\x1b[31m"
     exports.green = "\x1b[32m"
@@ -23,74 +21,86 @@
     exports.white = "\x1b[97m"
     exports.reset = "\x1b[0m"
 
+    /**
+     * Wraps a given character in ANSI color escape codes if color is passed in
+     * 
+     * @param {string} char - symbol to color
+     * @param {string} color - ANSI color code
+     * @returns {string}
+     */
     function colored (char, color) {
         // do not color it if color is not specified
-        return (color === undefined) ? char : (color + char + exports.reset)
+        return color ? `${color}${char || ''}${exports.reset}` : char
     }
 
     exports.colored = colored
 
-    exports.plot = function (series, cfg = undefined) {
-        // this function takes both one array and array of arrays
-        // if an array of numbers is passed it is transformed to
-        // an array of exactly one array with numbers
-        if (typeof(series[0]) == "number"){
-            series = [series]
-        }
+    /**
+     * @typedef {Object} Config
+     * @property {number} [min] - minimum value of any series (default: auto)
+     * @property {number} [max] - maximum value of any series (default: auto)
+     * @property {number} [offset=3] - axis offset from the left
+     * @property {string} [padding='       '] - padding string for label formatting
+     * @property {number} [height] - height of the chart (default: max - min)
+     * @property {string[]} [colors] - array of ANSI color codes to use for each series (default: built-in presets)
+     * @property {string[]} [symbols] - array of symbols to use for each series (defaults: ┼, ┤, ╶, ╴, ─, ╰, ╭, ╮, ╯, and │)
+     * @property {(x: number, i: number) => string} [format] - function to format each label. Optional second parameter is the index
+     */
 
-        cfg = (typeof cfg !== 'undefined') ? cfg : {}
+    /**
+     * Takes in a series of numbers and "plots" them as a line chart 
+     * using ASCII characters. Returned as a string with newlines 
+     * separating each line.
+     * 
+     * @param {number[] | number[][]} series - if an array of numbers is passed in, it will be transformed into an array of a single series
+     * @param {Config} [cfg={}] - configuration object
+     * @returns {string}
+     */
+    const plot = function (series, cfg = {}) {
+        if (typeof(series[0]) == "number") series = [series]
 
-        let min = (typeof cfg.min !== 'undefined') ? cfg.min : series[0][0]
-        let max = (typeof cfg.max !== 'undefined') ? cfg.max : series[0][0]
+        const defaultSymbols = [ '┼', '┤', '╶', '╴', '─', '╰', '╭', '╮', '╯', '│' ]
+        const defaultPadding = '           '
 
-        for (let j = 0; j < series.length; j++) {
-            for (let i = 0; i < series[j].length; i++) {
-                min = Math.min(min, series[j][i])
-                max = Math.max(max, series[j][i])
-            }
-        }
+        let { 
+            min       = Math.min(...series.flat()), 
+            max       = Math.max(...series.flat()),
+            offset    = 3,
+            padding   = defaultPadding,
+            height,
+            colors    = [],
+            symbols   = defaultSymbols,
+            format
+        } = cfg;
+        const range   = Math.abs(max - min)
+        height        = height ?? range
+        format        = format ?? (x => (padding + x.toFixed(2)).slice(-padding.length))
+        const ratio   = range ? height / range : 1
+        const min2    = Math.round(min * ratio)
+        const max2    = Math.round(max * ratio)
+        const rows    = Math.abs(max2 - min2)
+        const width   = offset + Math.max(0, ...series.map(s => s.length))
 
-        let defaultSymbols = [ '┼', '┤', '╶', '╴', '─', '╰', '╭', '╮', '╯', '│' ]
-        let range   = Math.abs (max - min)
-        let offset  = (typeof cfg.offset  !== 'undefined') ? cfg.offset  : 3
-        let padding = (typeof cfg.padding !== 'undefined') ? cfg.padding : '           '
-        let height  = (typeof cfg.height  !== 'undefined') ? cfg.height  : range
-        let colors  = (typeof cfg.colors !== 'undefined') ? cfg.colors : []
-        let ratio   = range !== 0 ? height / range : 1;
-        let min2    = Math.round (min * ratio)
-        let max2    = Math.round (max * ratio)
-        let rows    = Math.abs (max2 - min2)
-        let width = 0
-        for (let i = 0; i < series.length; i++) {
-            width = Math.max(width, series[i].length)
-        }
-        width = width + offset
-        let symbols = (typeof cfg.symbols !== 'undefined') ? cfg.symbols : defaultSymbols
-        let format  = (typeof cfg.format !== 'undefined') ? cfg.format : function (x) {
-            return (padding + x.toFixed (2)).slice (-padding.length)
-        }
+        // instantiate result as 2d array of spaces of size (rows + 1) x width
+        let result = Array.from(new Array(rows + 1), () => new Array(width).fill(' '))
 
-        let result = new Array (rows + 1) // empty space
-        for (let i = 0; i <= rows; i++) {
-            result[i] = new Array (width)
-            for (let j = 0; j < width; j++) {
-                result[i][j] = ' '
-            }
-        }
-        for (let y = min2; y <= max2; ++y) { // axis + labels
-            let label = format (rows > 0 ? max - (y - min2) * range / rows : y, y - min2)
-            result[y - min2][Math.max (offset - label.length, 0)] = label
+        // axis + labels
+        for (let y = min2; y <= max2; ++y) {
+            let label = format(rows ? max - (y - min2) * range / rows : y, y - min2)
+            result[y - min2][Math.max(offset - label.length, 0)] = label
             result[y - min2][offset - 1] = (y == 0) ? symbols[0] : symbols[1]
         }
 
+        // plot each series
         for (let j = 0; j < series.length; j++) {
             let currentColor = colors[j % colors.length]
-            let y0 = Math.round (series[j][0] * ratio) - min2
+            let y0 = Math.round(series[j][0] * ratio) - min2
             result[rows - y0][offset - 1] = colored(symbols[0], currentColor) // first value
 
-            for (let x = 0; x < series[j].length - 1; x++) { // plot the line
-                let y0 = Math.round (series[j][x + 0] * ratio) - min2
-                let y1 = Math.round (series[j][x + 1] * ratio) - min2
+            // plot the line
+            for (let x = 0; x < series[j].length - 1; x++) {
+                let y0 = Math.round(series[j][x + 0] * ratio) - min2
+                let y1 = Math.round(series[j][x + 1] * ratio) - min2
                 if (y0 == y1) {
                     result[rows - y0][x + offset] = colored(symbols[4], currentColor)
                 } else {
@@ -104,7 +114,9 @@
                 }
             }
         }
-        return result.map (function (x) { return x.join ('') }).join ('\n')
+
+        return result.map(x => x.join('')).join('\n')
     }
 
+    exports.plot = plot
 }) (typeof exports === 'undefined' ? /* istanbul ignore next */ this['asciichart'] = {} : exports);
