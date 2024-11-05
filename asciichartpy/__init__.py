@@ -172,12 +172,11 @@ def plot(series, cfg=None):
         result[y - min2][max(offset - len(label), 0)] = label
         result[y - min2][offset - 1] = symbols[0] if y == 0 else symbols[1]  # zero tick mark
 
-    # first value is a tick mark across the y-axis
-    d0 = series[0][0]
-    if _isnum(d0):
-        result[rows - scaled(d0)][offset - 1] = symbols[0]
-
     for i in range(0, len(series)):
+        # first value is a tick mark across the y-axis
+        d0 = series[i][0]
+        if _isnum(d0):
+            result[rows - scaled(d0)][offset - 1] = symbols[0]
 
         color = colors[i % len(colors)]
 
