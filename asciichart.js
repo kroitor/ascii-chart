@@ -54,6 +54,7 @@
         let range   = Math.abs (max - min)
         let offset  = (typeof cfg.offset  !== 'undefined') ? cfg.offset  : 3
         let padding = (typeof cfg.padding !== 'undefined') ? cfg.padding : '           '
+        let precision = (typeof cfg.precision !== 'undefined') ? cfg.precision : 2
         let height  = (typeof cfg.height  !== 'undefined') ? cfg.height  : range
         let colors  = (typeof cfg.colors !== 'undefined') ? cfg.colors : []
         let ratio   = range !== 0 ? height / range : 1;
@@ -67,7 +68,7 @@
         width = width + offset
         let symbols = (typeof cfg.symbols !== 'undefined') ? cfg.symbols : defaultSymbols
         let format  = (typeof cfg.format !== 'undefined') ? cfg.format : function (x) {
-            return (padding + x.toFixed (2)).slice (-padding.length)
+            return (padding + x.toFixed (precision)).slice (-padding.length)
         }
 
         let result = new Array (rows + 1) // empty space
