@@ -211,4 +211,4 @@ def plot(series, cfg=None):
             for y in range(start, end):
                 result[rows - y][x + offset] = colored(symbols[9], color)
 
-    return '\n'.join([''.join(row).rstrip() for row in result])
+    return '\n'.join([''.join(row) for row in result])
